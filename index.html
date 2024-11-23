@@ -12,13 +12,8 @@
       href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
     />
     <style>
-      body,
-      html {
-        height: 100%;
-        margin: 0;
-      }
       #map {
-        height: 100%;
+        height: 70vh;
       }
       .algorithm-step {
         transition: all 0.3s ease;
@@ -47,13 +42,11 @@
         transition: left 0.3s ease;
       }
       .route-comparison {
-        display: flex;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
         gap: 1rem;
-        flex-wrap: wrap;
       }
       .mini-route {
-        flex: 1;
-        min-width: 200px;
         padding: 10px;
         background: #f8f9fa;
         border-radius: 8px;
@@ -61,7 +54,7 @@
       }
       /* Estilos para o botão de tela cheia */
       .leaflet-control-fullscreen-button {
-        background-image: url('https://cdn-icons-png.flaticon.com/512/2089/2089676.png');
+        background-image: url("https://cdn-icons-png.flaticon.com/512/2089/2089676.png");
         background-size: 20px 20px;
         background-repeat: no-repeat;
         background-position: center;
@@ -69,33 +62,26 @@
         height: 36px;
         cursor: pointer;
       }
-      /* Ajuste para exibir tudo sem rolagem */
-      .container {
-        display: flex;
-        height: 100%;
-      }
-      .sidebar {
-        width: 350px;
+      /* Estilo para o painel de instruções */
+      #instruction-panel {
+        max-height: 70vh;
         overflow-y: auto;
-        background-color: #f0f0f0;
-        padding: 10px;
       }
-      .content {
-        flex: 1;
-        position: relative;
+      .instruction-step {
+        padding: 8px;
+        border-bottom: 1px solid #e2e8f0;
       }
-      .top-section {
-        display: flex;
-        gap: 1rem;
-        flex-wrap: wrap;
+      .instruction-step.active {
+        background-color: #e6fffa;
+        border-left: 4px solid #38b2ac;
       }
     </style>
   </head>
-  <body>
-    <div class="container">
-      <!-- Sidebar -->
-      <div class="sidebar">
-        <div class="space-y-4">
+  <body class="bg-gray-100 p-4">
+    <div class="max-w-7xl mx-auto">
+      <div class="grid grid-cols-3 gap-4">
+        <!-- Coluna da Esquerda: Controles e Status -->
+        <div class="col-span-1 space-y-4">
           <div class="bg-white rounded-lg shadow p-4">
             <h1 class="text-2xl font-bold mb-4">Sistema de Entregas</h1>
             <div class="space-y-2">
@@ -134,6 +120,18 @@
               >
                 Resetar Sistema
               </button>
+              <!-- Checkbox para habilitar/desabilitar pausas -->
+              <div class="mt-2">
+                <label class="inline-flex items-center">
+                  <input
+                    type="checkbox"
+                    class="form-checkbox"
+                    id="toggle-pauses"
+                    checked
+                  />
+                  <span class="ml-2">Mostrar passos do algoritmo</span>
+                </label>
+              </div>
             </div>
 
             <!-- Status da Temperatura -->
@@ -172,20 +170,12 @@
                 </div>
                 <div class="bg-gray-50 p-2 rounded">
                   <div class="text-gray-500 text-sm">Pior Distância</div>
-                  <div class="text-lg font-bold" id="pior-distancia">
-                    0 km
-                  </div>
+                  <div class="text-lg font-bold" id="pior-distancia">0 km</div>
                 </div>
                 <div class="bg-gray-50 p-2 rounded col-span-2">
                   <div class="text-gray-500 text-sm">Melhoria Total</div>
                   <div class="text-lg font-bold" id="percentual-melhoria">
                     0%
-                  </div>
-                </div>
-                <div class="bg-gray-50 p-2 rounded col-span-2">
-                  <div class="text-gray-500 text-sm">Tempo Estimado</div>
-                  <div class="text-lg font-bold" id="tempo-estimado">
-                    0 min
                   </div>
                 </div>
               </div>
@@ -213,36 +203,23 @@
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Entregas Realizadas -->
-          <div class="bg-white rounded-lg shadow p-4">
-            <h3 class="font-bold mb-2">Entregas Realizadas</h3>
-            <div id="entregas-realizadas-list" class="text-sm">
-              Nenhuma entrega realizada ainda.
+        <!-- Coluna do Meio e Direita: Mapa e Comparações -->
+        <div class="col-span-2 space-y-4">
+          <!-- Mapa e Instruções -->
+          <div class="bg-white rounded-lg shadow p-4 grid grid-cols-3 gap-4">
+            <div class="col-span-2">
+              <div id="map"></div>
+            </div>
+            <div class="col-span-1">
+              <h3 class="font-bold mb-2">Instruções de Rota</h3>
+              <div id="instruction-panel" class="bg-gray-50 p-2 rounded"></div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- Main Content -->
-      <div class="content">
-        <!-- Mapa -->
-        <div id="map"></div>
-
-        <!-- Overlay para informações adicionais -->
-        <div
-          style="
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            right: 10px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px;
-            border-radius: 8px;
-          "
-        >
           <!-- Comparação de Rotas -->
-          <div>
+          <div class="bg-white rounded-lg shadow p-4">
             <h3 class="font-bold mb-2">Comparação de Rotas</h3>
             <div class="route-comparison">
               <div class="mini-route">
@@ -257,6 +234,14 @@
                 <h4 class="font-bold">Melhor Rota</h4>
                 <div id="melhor-rota-info">Aguardando otimização...</div>
               </div>
+            </div>
+          </div>
+
+          <!-- Entregas Realizadas -->
+          <div class="bg-white rounded-lg shadow p-4">
+            <h3 class="font-bold mb-2">Entregas Realizadas</h3>
+            <div id="entregas-realizadas-list" class="text-sm">
+              Nenhuma entrega realizada ainda.
             </div>
           </div>
         </div>
@@ -301,11 +286,30 @@
       let tempoEstimado = 0;
       let restaurantMarker; // Mantém o marcador do restaurante
       let entregasRealizadas = 0;
+      let instructionSteps = [];
+      let currentInstructionIndex = 0;
 
       // Coordenadas dos pontos de referência
       const CESMAC = [-9.6659, -35.7355];
       const UFAL = [-9.5573, -35.7752];
       const CENTRO_CONVENCOES = [-9.6498, -35.7089];
+
+      // Velocidade média do entregador em km/h
+      const VELOCIDADE_MEDIA = 40; // Você pode ajustar esse valor conforme necessário
+
+      // Nomes de ruas fictícias para gerar endereços
+      const NOMES_RUAS = [
+        "Av. Central",
+        "Rua das Flores",
+        "Alameda dos Anjos",
+        "Praça da Liberdade",
+        "Rua do Comércio",
+        "Av. Paulista",
+        "Rua Sete de Setembro",
+        "Av. Independência",
+        "Rua da Harmonia",
+        "Av. Brasil",
+      ];
 
       // Inicializar mapa
       function initMap() {
@@ -382,10 +386,12 @@
         // Gerar novos pedidos
         for (let i = 0; i < 10; i++) {
           const coords = gerarCoordenadas();
+          const numero = Math.floor(Math.random() * 1000) + 1;
+          const rua = NOMES_RUAS[Math.floor(Math.random() * NOMES_RUAS.length)];
           const pedido = {
             id: i + 1,
             coords: coords,
-            endereco: `Rua ${i + 1}, Nº ${Math.floor(Math.random() * 1000)}`,
+            endereco: `${rua}, Nº ${numero}`,
             entregue: false,
             marker: L.marker(coords, {
               icon: L.divIcon({
@@ -401,11 +407,11 @@
         // Atualizar pior rota
         piorRota = [...pedidos];
         atualizarPiorRotaInfo();
-        desenharRotaSimples(piorRota, "red");
 
         // Habilitar botão de início
         document.getElementById("btn-iniciar-entregas").disabled = false;
-        rotaAtual = [...piorRota];
+        rotaAtual = [...pedidos];
+        desenharRotaSimples(rotaAtual, "red");
         distanciaPior = calcularDistanciaTotal(rotaAtual);
         atualizarEstatisticas();
       }
@@ -441,13 +447,9 @@
         return distancia;
       }
 
-      // Calcular tempo estimado de uma rota
-      function calcularTempoEstimado(rota) {
-        const velocidadeMedia = 40; // km/h
-        const distancia = calcularDistanciaTotal(rota);
-        const tempoHoras = distancia / velocidadeMedia;
-        const tempoMinutos = tempoHoras * 60;
-        return tempoMinutos;
+      // Calcular tempo estimado de uma rota (em minutos)
+      function calcularTempoEstimado(distancia) {
+        return (distancia / VELOCIDADE_MEDIA) * 60; // Converter horas para minutos
       }
 
       // Gerar solução vizinha trocando dois pedidos
@@ -487,21 +489,25 @@
 
       // Atualizar informações da pior rota
       function atualizarPiorRotaInfo() {
-        const tempoEstimado = calcularTempoEstimado(piorRota).toFixed(1);
+        const distancia = calcularDistanciaTotal(piorRota);
+        const tempo = calcularTempoEstimado(distancia);
+
         document.getElementById("pior-rota-info").innerHTML =
           `Sequência: ${piorRota.map((p) => p.id).join(" → ")}<br>` +
-          `Distância: ${calcularDistanciaTotal(piorRota).toFixed(1)} km<br>` +
-          `Tempo Estimado: ${tempoEstimado} min`;
+          `Distância: ${distancia.toFixed(1)} km<br>` +
+          `Tempo Estimado: ${tempo.toFixed(1)} min`;
       }
 
       // Atualizar interface do usuário
       function atualizarInterface(fase, info = {}) {
-        // Atualizar passo ativo do algoritmo
-        document.querySelectorAll(".algorithm-step").forEach((step) => {
-          step.classList.remove("active");
-        });
-        if (fase)
-          document.getElementById(`step-${fase}`).classList.add("active");
+        if (fase !== undefined) {
+          // Atualizar passo ativo do algoritmo
+          document.querySelectorAll(".algorithm-step").forEach((step) => {
+            step.classList.remove("active");
+          });
+          if (fase)
+            document.getElementById(`step-${fase}`).classList.add("active");
+        }
 
         // Atualizar indicador de temperatura
         const tempProgress = (1000 - temperatura) / 1000;
@@ -514,29 +520,20 @@
 
         // Atualizar informações das rotas
         if (info.rotaAtual) {
-          const tempoEstimadoAtual = calcularTempoEstimado(rotaAtual).toFixed(
-            1
-          );
+          const distancia = calcularDistanciaTotal(info.rotaAtual);
+          const tempo = calcularTempoEstimado(distancia);
           document.getElementById("rota-atual-info").innerHTML =
             `Sequência: ${info.rotaAtual.map((p) => p.id).join(" → ")}<br>` +
-            `Distância: ${calcularDistanciaTotal(info.rotaAtual).toFixed(
-              1
-            )} km<br>` +
-            `Tempo Estimado: ${tempoEstimadoAtual} min`;
+            `Distância: ${distancia.toFixed(1)} km<br>` +
+            `Tempo Estimado: ${tempo.toFixed(1)} min`;
         }
         if (info.melhorRota) {
-          const tempoEstimadoMelhor = calcularTempoEstimado(
-            melhorRota
-          ).toFixed(1);
+          const distancia = calcularDistanciaTotal(melhorRota);
+          const tempo = calcularTempoEstimado(distancia);
           document.getElementById("melhor-rota-info").innerHTML =
-            `Sequência: ${info.melhorRota.map((p) => p.id).join(" → ")}<br>` +
-            `Distância: ${calcularDistanciaTotal(melhorRota).toFixed(
-              1
-            )} km<br>` +
-            `Tempo Estimado: ${tempoEstimadoMelhor} min`;
-        } else {
-          document.getElementById("melhor-rota-info").innerHTML =
-            "Aguardando otimização...";
+            `Sequência: ${melhorRota.map((p) => p.id).join(" → ")}<br>` +
+            `Distância: ${distancia.toFixed(1)} km<br>` +
+            `Tempo Estimado: ${tempo.toFixed(1)} min`;
         }
       }
 
@@ -564,11 +561,6 @@
         } else {
           document.getElementById("percentual-melhoria").textContent = `0%`;
         }
-
-        // Atualizar tempo estimado
-        document.getElementById(
-          "tempo-estimado"
-        ).textContent = `${Math.ceil(tempoEstimado)} min`;
       }
 
       // Implementação do algoritmo Têmpera Simulada
@@ -582,10 +574,16 @@
         let melhorDistancia = calcularDistanciaTotal(melhorRota);
         let distanciaAtual = melhorDistancia;
 
-        // Definir o número de iterações para aproximadamente 10 segundos
-        const tempoDesejado = 10000; // 10 segundos
-        const tempoPorIteracao = 5; // 5 milissegundos por iteração
-        const maxIteracoes = Math.floor(tempoDesejado / tempoPorIteracao);
+        // Destacar o início do algoritmo
+        const mostrarPassos = document.getElementById("toggle-pauses").checked;
+        if (mostrarPassos) {
+          atualizarInterface(1);
+          await new Promise((r) => setTimeout(r, 100));
+        }
+
+        // Definir o número de iterações para aproximadamente 1000
+        const maxIteracoes = 1000;
+        const tempoPorIteracao = mostrarPassos ? 5 : 1;
 
         while (temperatura > 0.1 && iteracoes < maxIteracoes) {
           if (isPaused) {
@@ -602,16 +600,25 @@
           iteracoes++;
 
           // Passo 2: Gerar solução vizinha
-          atualizarInterface(2);
+          if (mostrarPassos) {
+            atualizarInterface(2);
+            await new Promise((r) => setTimeout(r, 1)); // pequena pausa
+          }
           const rotaVizinha = gerarRotaVizinha(rotaAtual);
 
           // Passo 3: Avaliar nova solução
-          atualizarInterface(3);
+          if (mostrarPassos) {
+            atualizarInterface(3);
+            await new Promise((r) => setTimeout(r, 1)); // pequena pausa
+          }
           const distanciaVizinha = calcularDistanciaTotal(rotaVizinha);
           const delta = distanciaVizinha - distanciaAtual;
 
           // Passo 4: Decidir aceitação
-          atualizarInterface(4);
+          if (mostrarPassos) {
+            atualizarInterface(4);
+            await new Promise((r) => setTimeout(r, 1)); // pequena pausa
+          }
           if (delta < 0 || Math.random() < Math.exp(-delta / temperatura)) {
             rotaAtual = rotaVizinha;
             distanciaAtual = distanciaVizinha;
@@ -621,13 +628,13 @@
               melhorDistancia = distanciaVizinha;
 
               // Atualizar melhor rota na interface
-              atualizarInterface(null, {
+              atualizarInterface(undefined, {
                 melhorRota: melhorRota,
               });
             }
 
             // Atualizar rota atual na interface
-            atualizarInterface(null, {
+            atualizarInterface(undefined, {
               rotaAtual: rotaAtual,
             });
 
@@ -636,8 +643,11 @@
           }
 
           // Passo 5: Resfriar
-          atualizarInterface(5);
-          temperatura *= Math.pow(0.1, 1 / maxIteracoes); // Ajuste dinâmico
+          if (mostrarPassos) {
+            atualizarInterface(5);
+            await new Promise((r) => setTimeout(r, 1)); // pequena pausa
+          }
+          temperatura *= 0.99; // Taxa de resfriamento
 
           // Atualizar estatísticas
           atualizarEstatisticas();
@@ -652,7 +662,7 @@
         document.getElementById("btn-iniciar-entregas").disabled = false;
 
         // Atualizar melhor rota na interface
-        atualizarInterface(null, {
+        atualizarInterface(undefined, {
           melhorRota: melhorRota,
           rotaAtual: rotaAtual,
         });
@@ -709,6 +719,9 @@
         isPaused = false;
         tempoEstimado = 0;
         entregasRealizadas = 0;
+        instructionSteps = [];
+        currentInstructionIndex = 0;
+        document.getElementById("instruction-panel").innerHTML = "";
         map.setView(RESTAURANTE.coords, 13); // Redefinir a visualização do mapa
         atualizarEstatisticas();
         atualizarInterface(null);
@@ -779,6 +792,9 @@
             tempoEstimado = route.summary.totalTime / 60; // segundos para minutos
             atualizarEstatisticas();
 
+            // Obter instruções
+            instructionSteps = route.instructions;
+
             // Iniciar animação dos entregadores
             animarEntregadores(route.coordinates, deliveryIndices);
           })
@@ -787,6 +803,7 @@
 
       function animarEntregadores(coordenadas, deliveryIndices) {
         let index = 0;
+        currentInstructionIndex = 0;
 
         // Remover entregadores anteriores
         entregadorMarkers.forEach((marker) => map.removeLayer(marker));
@@ -832,8 +849,30 @@
               }
 
               const entregaInfo = document.createElement("div");
-              entregaInfo.textContent = `Entrega ${rotaAtual[deliveryIdx].id} - entregue.`;
+              entregaInfo.textContent = `Entrega ${rotaAtual[deliveryIdx].id} - entregue no endereço: ${rotaAtual[deliveryIdx].endereco}.`;
               entregasList.appendChild(entregaInfo);
+            }
+
+            // Atualizar instruções
+            if (
+              instructionSteps[currentInstructionIndex] &&
+              index >= instructionSteps[currentInstructionIndex].index
+            ) {
+              // Atualizar instrução exibida
+              const instructionPanel =
+                document.getElementById("instruction-panel");
+              instructionPanel.innerHTML = "";
+
+              const instr = instructionSteps[currentInstructionIndex];
+              const stepDiv = document.createElement("div");
+              stepDiv.className = "instruction-step active";
+              stepDiv.id = `instruction-step-${currentInstructionIndex}`;
+              stepDiv.innerHTML = `<strong>${
+                currentInstructionIndex + 1
+              }.</strong> ${instr.text}`;
+              instructionPanel.appendChild(stepDiv);
+
+              currentInstructionIndex++;
             }
 
             setTimeout(moveMarker, tempoPorPasso);
@@ -843,17 +882,6 @@
         }
 
         moveMarker();
-
-        // Mostrar progresso da entrega
-        const progressInterval = setInterval(() => {
-          const progress = ((index / totalSteps) * 100).toFixed(1);
-          document.getElementById(
-            "rota-atual-info"
-          ).innerHTML += `<br>Progresso da Entrega: ${progress}%`;
-          if (index >= totalSteps - 1) {
-            clearInterval(progressInterval);
-          }
-        }, 1000);
       }
 
       // Inicializar aplicação
