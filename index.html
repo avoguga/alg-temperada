@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Sistema de Entregas - Têmpera Simulada</title>
+    <meta charset="utf-8" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+    />
+    <style>
+      body,
+      html {
+        height: 100%;
+        margin: 0;
+      }
+      #map {
+        height: 100%;
+      }
+      .algorithm-step {
+        transition: all 0.3s ease;
+      }
+      .algorithm-step.active {
+        background-color: #e3f2fd;
+        border-left: 4px solid #1e88e5;
+      }
+      .entregador-icon {
+        font-size: 20px;
+        filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.5));
+      }
+      .temperature-bar {
+        height: 20px;
+        background: linear-gradient(to right, #ff4444, #ffae44, #44ff44);
+        border-radius: 10px;
+        position: relative;
+        overflow: hidden;
+      }
+      .temperature-indicator {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background-color: black;
+        transition: left 0.3s ease;
+      }
+      .route-comparison {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+      .mini-route {
+        flex: 1;
+        min-width: 200px;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        font-size: 0.9em;
+      }
+      /* Estilos para o botão de tela cheia */
+      .leaflet-control-fullscreen-button {
+        background-image: url('https://cdn-icons-png.flaticon.com/512/2089/2089676.png');
+        background-size: 20px 20px;
+        background-repeat: no-repeat;
+        background-position: center;
+        width: 36px;
+        height: 36px;
+        cursor: pointer;
+      }
+      /* Ajuste para exibir tudo sem rolagem */
+      .container {
+        display: flex;
+        height: 100%;
+      }
+      .sidebar {
+        width: 350px;
+        overflow-y: auto;
+        background-color: #f0f0f0;
+        padding: 10px;
+      }
+      .content {
+        flex: 1;
+        position: relative;
+      }
+      .top-section {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <div class="space-y-4">
+          <div class="bg-white rounded-lg shadow p-4">
+            <h1 class="text-2xl font-bold mb-4">Sistema de Entregas</h1>
+            <div class="space-y-2">
+              <button
+                onclick="gerarPedidos()"
+                class="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition"
+              >
+                Gerar Pedidos Aleatórios
+              </button>
+              <button
+                onclick="iniciarTemperaSimulada()"
+                class="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded transition"
+                id="btn-iniciar-tempera"
+              >
+                Iniciar Têmpera Simulada
+              </button>
+              <button
+                onclick="iniciarEntregas()"
+                class="w-full bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded transition"
+                disabled
+                id="btn-iniciar-entregas"
+              >
+                Iniciar Entregas
+              </button>
+              <button
+                onclick="pausarSimulacao()"
+                class="w-full bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded transition"
+                id="btn-pausar"
+              >
+                Pausar
+              </button>
+              <!-- Botão de Reset -->
+              <button
+                onclick="resetarSistema()"
+                class="w-full bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded transition"
+              >
+                Resetar Sistema
+              </button>
+            </div>
+
+            <!-- Status da Temperatura -->
+            <div class="mt-4">
+              <h3 class="font-bold mb-2">Temperatura do Sistema</h3>
+              <div class="temperature-bar">
+                <div
+                  class="temperature-indicator"
+                  id="temperature-indicator"
+                ></div>
+              </div>
+              <div class="flex justify-between text-sm mt-1">
+                <span>Alta (1000°)</span>
+                <span>Baixa (0.1°)</span>
+              </div>
+              <div class="text-center mt-2" id="temperatura-atual">1000°</div>
+            </div>
+
+            <!-- Estatísticas -->
+            <div class="mt-4">
+              <h3 class="font-bold mb-2">Estatísticas</h3>
+              <div class="grid grid-cols-2 gap-2">
+                <div class="bg-gray-50 p-2 rounded">
+                  <div class="text-gray-500 text-sm">Pedidos</div>
+                  <div class="text-lg font-bold" id="total-pedidos">0</div>
+                </div>
+                <div class="bg-gray-50 p-2 rounded">
+                  <div class="text-gray-500 text-sm">Iterações</div>
+                  <div class="text-lg font-bold" id="total-iteracoes">0</div>
+                </div>
+                <div class="bg-gray-50 p-2 rounded">
+                  <div class="text-gray-500 text-sm">Melhor Distância</div>
+                  <div class="text-lg font-bold" id="melhor-distancia">
+                    0 km
+                  </div>
+                </div>
+                <div class="bg-gray-50 p-2 rounded">
+                  <div class="text-gray-500 text-sm">Pior Distância</div>
+                  <div class="text-lg font-bold" id="pior-distancia">
+                    0 km
+                  </div>
+                </div>
+                <div class="bg-gray-50 p-2 rounded col-span-2">
+                  <div class="text-gray-500 text-sm">Melhoria Total</div>
+                  <div class="text-lg font-bold" id="percentual-melhoria">
+                    0%
+                  </div>
+                </div>
+                <div class="bg-gray-50 p-2 rounded col-span-2">
+                  <div class="text-gray-500 text-sm">Tempo Estimado</div>
+                  <div class="text-lg font-bold" id="tempo-estimado">
+                    0 min
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Explicação do Algoritmo -->
+          <div class="bg-white rounded-lg shadow p-4">
+            <h3 class="font-bold mb-2">Passos do Algoritmo</h3>
+            <div class="space-y-2" id="algorithm-steps">
+              <div class="algorithm-step p-2 rounded" id="step-1">
+                1. Início com temperatura alta (1000°)
+              </div>
+              <div class="algorithm-step p-2 rounded" id="step-2">
+                2. Geração de solução vizinha
+              </div>
+              <div class="algorithm-step p-2 rounded" id="step-3">
+                3. Avaliação da nova solução
+              </div>
+              <div class="algorithm-step p-2 rounded" id="step-4">
+                4. Decisão de aceitação
+              </div>
+              <div class="algorithm-step p-2 rounded" id="step-5">
+                5. Resfriamento do sistema
+              </div>
+            </div>
+          </div>
+
+          <!-- Entregas Realizadas -->
+          <div class="bg-white rounded-lg shadow p-4">
+            <h3 class="font-bold mb-2">Entregas Realizadas</h3>
+            <div id="entregas-realizadas-list" class="text-sm">
+              Nenhuma entrega realizada ainda.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div class="content">
+        <!-- Mapa -->
+        <div id="map"></div>
+
+        <!-- Overlay para informações adicionais -->
+        <div
+          style="
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 8px;
+          "
+        >
+          <!-- Comparação de Rotas -->
+          <div>
+            <h3 class="font-bold mb-2">Comparação de Rotas</h3>
+            <div class="route-comparison">
+              <div class="mini-route">
+                <h4 class="font-bold">Pior Rota</h4>
+                <div id="pior-rota-info">Aguardando geração...</div>
+              </div>
+              <div class="mini-route">
+                <h4 class="font-bold">Rota Atual</h4>
+                <div id="rota-atual-info">Aguardando início...</div>
+              </div>
+              <div class="mini-route">
+                <h4 class="font-bold">Melhor Rota</h4>
+                <div id="melhor-rota-info">Aguardando otimização...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inclusão das bibliotecas necessárias -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <!-- Leaflet Routing Machine -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css"
+    />
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+
+    <!-- Biblioteca para tela cheia -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.fullscreen/1.6.0/Control.FullScreen.min.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.fullscreen/1.6.0/Control.FullScreen.min.css"
+    />
+
+    <script>
+      // Configurações iniciais
+      const RESTAURANTE = {
+        nome: "Restaurante Central",
+        coords: [-9.6498, -35.7089], // Próximo ao Centro de Convenções
+      };
+
+      let map,
+        pedidos = [],
+        melhorRota = [],
+        piorRota = [],
+        rotaAtual = [];
+      let temperatura = 1000;
+      let iteracoes = 0;
+      let distanciaInicial = 0;
+      let distanciaPior = 0;
+      let isPaused = false;
+      let entregadorMarkers = [];
+      let routingControl;
+      let tempoEstimado = 0;
+      let restaurantMarker; // Mantém o marcador do restaurante
+      let entregasRealizadas = 0;
+
+      // Coordenadas dos pontos de referência
+      const CESMAC = [-9.6659, -35.7355];
+      const UFAL = [-9.5573, -35.7752];
+      const CENTRO_CONVENCOES = [-9.6498, -35.7089];
+
+      // Inicializar mapa
+      function initMap() {
+        map = L.map("map").setView(RESTAURANTE.coords, 13);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenStreetMap contributors",
+        }).addTo(map);
+
+        // Adicionar controle de tela cheia
+        L.control.fullscreen().addTo(map);
+
+        // Adicionar marcador do restaurante
+        restaurantMarker = L.marker(RESTAURANTE.coords, {
+          icon: L.divIcon({
+            className: "restaurant-icon",
+            html: "🏪",
+            iconSize: [30, 30],
+          }),
+        })
+          .bindPopup(RESTAURANTE.nome)
+          .addTo(map);
+      }
+
+      // Gerar coordenadas aleatórias dentro do polígono definido pelos três pontos
+      function gerarCoordenadas() {
+        // Definir limites de latitude e longitude
+        const minLat = Math.min(CESMAC[0], UFAL[0], CENTRO_CONVENCOES[0]);
+        const maxLat = Math.max(CESMAC[0], UFAL[0], CENTRO_CONVENCOES[0]);
+        const minLng = Math.min(CESMAC[1], UFAL[1], CENTRO_CONVENCOES[1]);
+        const maxLng = Math.max(CESMAC[1], UFAL[1], CENTRO_CONVENCOES[1]);
+
+        let lat, lng;
+
+        // Gerar coordenadas aleatórias até que estejam dentro do triângulo
+        while (true) {
+          lat = minLat + Math.random() * (maxLat - minLat);
+          lng = minLng + Math.random() * (maxLng - minLng);
+
+          if (pontoDentroDoTriangulo([lat, lng])) {
+            break;
+          }
+        }
+
+        return [lat, lng];
+      }
+
+      // Verificar se um ponto está dentro do triângulo
+      function pontoDentroDoTriangulo(ponto) {
+        const [x, y] = ponto;
+        const [x1, y1] = CESMAC;
+        const [x2, y2] = UFAL;
+        const [x3, y3] = CENTRO_CONVENCOES;
+
+        const areaOrig = Math.abs(
+          (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2)) / 2.0
+        );
+        const area1 = Math.abs(
+          (x * (y2 - y3) + x2 * (y3 - y) + x3 * (y - y2)) / 2.0
+        );
+        const area2 = Math.abs(
+          (x1 * (y - y3) + x * (y3 - y1) + x3 * (y1 - y)) / 2.0
+        );
+        const area3 = Math.abs(
+          (x1 * (y2 - y) + x2 * (y - y1) + x * (y1 - y2)) / 2.0
+        );
+
+        return Math.abs(area1 + area2 + area3 - areaOrig) < 0.0001;
+      }
+
+      // Gerar pedidos aleatórios
+      function gerarPedidos() {
+        resetarSistema();
+        // Gerar novos pedidos
+        for (let i = 0; i < 10; i++) {
+          const coords = gerarCoordenadas();
+          const pedido = {
+            id: i + 1,
+            coords: coords,
+            endereco: `Rua ${i + 1}, Nº ${Math.floor(Math.random() * 1000)}`,
+            entregue: false,
+            marker: L.marker(coords, {
+              icon: L.divIcon({
+                className: "pedido-icon",
+                html: `📦 ${i + 1}`,
+                iconSize: [30, 30],
+              }),
+            }).addTo(map),
+          };
+          pedidos.push(pedido);
+        }
+
+        // Atualizar pior rota
+        piorRota = [...pedidos];
+        atualizarPiorRotaInfo();
+        desenharRotaSimples(piorRota, "red");
+
+        // Habilitar botão de início
+        document.getElementById("btn-iniciar-entregas").disabled = false;
+        rotaAtual = [...piorRota];
+        distanciaPior = calcularDistanciaTotal(rotaAtual);
+        atualizarEstatisticas();
+      }
+
+      // Calcular distância entre dois pontos
+      function calcularDistancia(p1, p2) {
+        const R = 6371;
+        const dLat = ((p2[0] - p1[0]) * Math.PI) / 180;
+        const dLon = ((p2[1] - p1[1]) * Math.PI) / 180;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos((p1[0] * Math.PI) / 180) *
+            Math.cos((p2[0] * Math.PI) / 180) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      }
+
+      // Calcular distância total de uma rota
+      function calcularDistanciaTotal(rota) {
+        if (rota.length === 0) return 0;
+        let distancia = calcularDistancia(RESTAURANTE.coords, rota[0].coords);
+
+        for (let i = 0; i < rota.length - 1; i++) {
+          distancia += calcularDistancia(rota[i].coords, rota[i + 1].coords);
+        }
+
+        distancia += calcularDistancia(
+          rota[rota.length - 1].coords,
+          RESTAURANTE.coords
+        );
+        return distancia;
+      }
+
+      // Calcular tempo estimado de uma rota
+      function calcularTempoEstimado(rota) {
+        const velocidadeMedia = 40; // km/h
+        const distancia = calcularDistanciaTotal(rota);
+        const tempoHoras = distancia / velocidadeMedia;
+        const tempoMinutos = tempoHoras * 60;
+        return tempoMinutos;
+      }
+
+      // Gerar solução vizinha trocando dois pedidos
+      function gerarRotaVizinha(rota) {
+        const novaRota = [...rota];
+        const i = Math.floor(Math.random() * rota.length);
+        let j = Math.floor(Math.random() * rota.length);
+        while (i === j) j = Math.floor(Math.random() * rota.length);
+
+        [novaRota[i], novaRota[j]] = [novaRota[j], novaRota[i]];
+        return novaRota;
+      }
+
+      // Desenhar rota simples (linhas retas) no mapa
+      function desenharRotaSimples(rota, cor) {
+        // Remover rotas anteriores
+        map.eachLayer((layer) => {
+          if (layer instanceof L.Polyline && !layer._route) {
+            map.removeLayer(layer);
+          }
+        });
+
+        // Criar pontos da rota incluindo restaurante
+        const pontos = [
+          RESTAURANTE.coords,
+          ...rota.map((p) => p.coords),
+          RESTAURANTE.coords,
+        ];
+
+        // Desenhar nova rota
+        L.polyline(pontos, {
+          color: cor,
+          weight: 3,
+          opacity: 0.8,
+        }).addTo(map);
+      }
+
+      // Atualizar informações da pior rota
+      function atualizarPiorRotaInfo() {
+        const tempoEstimado = calcularTempoEstimado(piorRota).toFixed(1);
+        document.getElementById("pior-rota-info").innerHTML =
+          `Sequência: ${piorRota.map((p) => p.id).join(" → ")}<br>` +
+          `Distância: ${calcularDistanciaTotal(piorRota).toFixed(1)} km<br>` +
+          `Tempo Estimado: ${tempoEstimado} min`;
+      }
+
+      // Atualizar interface do usuário
+      function atualizarInterface(fase, info = {}) {
+        // Atualizar passo ativo do algoritmo
+        document.querySelectorAll(".algorithm-step").forEach((step) => {
+          step.classList.remove("active");
+        });
+        if (fase)
+          document.getElementById(`step-${fase}`).classList.add("active");
+
+        // Atualizar indicador de temperatura
+        const tempProgress = (1000 - temperatura) / 1000;
+        document.getElementById("temperature-indicator").style.left = `${
+          tempProgress * 100
+        }%`;
+        document.getElementById(
+          "temperatura-atual"
+        ).textContent = `${temperatura.toFixed(1)}°`;
+
+        // Atualizar informações das rotas
+        if (info.rotaAtual) {
+          const tempoEstimadoAtual = calcularTempoEstimado(rotaAtual).toFixed(
+            1
+          );
+          document.getElementById("rota-atual-info").innerHTML =
+            `Sequência: ${info.rotaAtual.map((p) => p.id).join(" → ")}<br>` +
+            `Distância: ${calcularDistanciaTotal(info.rotaAtual).toFixed(
+              1
+            )} km<br>` +
+            `Tempo Estimado: ${tempoEstimadoAtual} min`;
+        }
+        if (info.melhorRota) {
+          const tempoEstimadoMelhor = calcularTempoEstimado(
+            melhorRota
+          ).toFixed(1);
+          document.getElementById("melhor-rota-info").innerHTML =
+            `Sequência: ${info.melhorRota.map((p) => p.id).join(" → ")}<br>` +
+            `Distância: ${calcularDistanciaTotal(melhorRota).toFixed(
+              1
+            )} km<br>` +
+            `Tempo Estimado: ${tempoEstimadoMelhor} min`;
+        } else {
+          document.getElementById("melhor-rota-info").innerHTML =
+            "Aguardando otimização...";
+        }
+      }
+
+      // Atualizar estatísticas
+      function atualizarEstatisticas() {
+        document.getElementById("total-pedidos").textContent = pedidos.length;
+        document.getElementById("total-iteracoes").textContent = iteracoes;
+
+        const distanciaMelhor = calcularDistanciaTotal(melhorRota);
+        const distanciaPior = calcularDistanciaTotal(piorRota);
+
+        document.getElementById(
+          "melhor-distancia"
+        ).textContent = `${distanciaMelhor.toFixed(1)} km`;
+        document.getElementById(
+          "pior-distancia"
+        ).textContent = `${distanciaPior.toFixed(1)} km`;
+
+        if (distanciaPior > 0 && distanciaMelhor > 0) {
+          const melhoria =
+            ((distanciaPior - distanciaMelhor) / distanciaPior) * 100;
+          document.getElementById(
+            "percentual-melhoria"
+          ).textContent = `${melhoria.toFixed(1)}%`;
+        } else {
+          document.getElementById("percentual-melhoria").textContent = `0%`;
+        }
+
+        // Atualizar tempo estimado
+        document.getElementById(
+          "tempo-estimado"
+        ).textContent = `${Math.ceil(tempoEstimado)} min`;
+      }
+
+      // Implementação do algoritmo Têmpera Simulada
+      async function temperaSimulada() {
+        if (!pedidos.length) return;
+
+        temperatura = 1000;
+        iteracoes = 0;
+        rotaAtual = [...piorRota];
+        melhorRota = [...rotaAtual];
+        let melhorDistancia = calcularDistanciaTotal(melhorRota);
+        let distanciaAtual = melhorDistancia;
+
+        // Definir o número de iterações para aproximadamente 10 segundos
+        const tempoDesejado = 10000; // 10 segundos
+        const tempoPorIteracao = 5; // 5 milissegundos por iteração
+        const maxIteracoes = Math.floor(tempoDesejado / tempoPorIteracao);
+
+        while (temperatura > 0.1 && iteracoes < maxIteracoes) {
+          if (isPaused) {
+            await new Promise((resolve) => {
+              const interval = setInterval(() => {
+                if (!isPaused) {
+                  clearInterval(interval);
+                  resolve();
+                }
+              }, 100);
+            });
+          }
+
+          iteracoes++;
+
+          // Passo 2: Gerar solução vizinha
+          atualizarInterface(2);
+          const rotaVizinha = gerarRotaVizinha(rotaAtual);
+
+          // Passo 3: Avaliar nova solução
+          atualizarInterface(3);
+          const distanciaVizinha = calcularDistanciaTotal(rotaVizinha);
+          const delta = distanciaVizinha - distanciaAtual;
+
+          // Passo 4: Decidir aceitação
+          atualizarInterface(4);
+          if (delta < 0 || Math.random() < Math.exp(-delta / temperatura)) {
+            rotaAtual = rotaVizinha;
+            distanciaAtual = distanciaVizinha;
+
+            if (distanciaVizinha < melhorDistancia) {
+              melhorRota = [...rotaVizinha];
+              melhorDistancia = distanciaVizinha;
+
+              // Atualizar melhor rota na interface
+              atualizarInterface(null, {
+                melhorRota: melhorRota,
+              });
+            }
+
+            // Atualizar rota atual na interface
+            atualizarInterface(null, {
+              rotaAtual: rotaAtual,
+            });
+
+            // Desenhar rota atual
+            desenharRotaSimples(rotaAtual, "blue");
+          }
+
+          // Passo 5: Resfriar
+          atualizarInterface(5);
+          temperatura *= Math.pow(0.1, 1 / maxIteracoes); // Ajuste dinâmico
+
+          // Atualizar estatísticas
+          atualizarEstatisticas();
+
+          // Esperar para controlar o tempo da iteração
+          await new Promise((r) => setTimeout(r, tempoPorIteracao));
+        }
+
+        // Finalizar com a melhor rota encontrada
+        rotaAtual = melhorRota;
+        desenharRotaSimples(rotaAtual, "green");
+        document.getElementById("btn-iniciar-entregas").disabled = false;
+
+        // Atualizar melhor rota na interface
+        atualizarInterface(null, {
+          melhorRota: melhorRota,
+          rotaAtual: rotaAtual,
+        });
+
+        // Atualizar estatísticas finais
+        atualizarEstatisticas();
+
+        // Destacar que a otimização foi concluída
+        alert("Otimização concluída!");
+      }
+
+      // Funções de controle
+      function iniciarTemperaSimulada() {
+        isPaused = false;
+        document.getElementById("btn-iniciar-entregas").disabled = true;
+        document.getElementById("btn-iniciar-tempera").disabled = true;
+        temperaSimulada();
+      }
+
+      function pausarSimulacao() {
+        isPaused = !isPaused;
+        const pauseButton = document.getElementById("btn-pausar");
+        pauseButton.textContent = isPaused ? "Continuar" : "Pausar";
+      }
+
+      function resetarSistema() {
+        // Limpar rotas, pedidos e estatísticas
+        if (routingControl) {
+          map.removeControl(routingControl);
+          routingControl = null;
+        }
+        // Remover marcadores e polilinhas, mas manter o tile layer
+        map.eachLayer((layer) => {
+          if (
+            layer instanceof L.Marker ||
+            (layer instanceof L.Polyline && !layer._route)
+          ) {
+            map.removeLayer(layer);
+          }
+        });
+        // Re-adicionar o marcador do restaurante
+        if (restaurantMarker) {
+          restaurantMarker.addTo(map);
+        }
+
+        pedidos = [];
+        melhorRota = [];
+        piorRota = [];
+        rotaAtual = [];
+        temperatura = 1000;
+        iteracoes = 0;
+        distanciaInicial = 0;
+        distanciaPior = 0;
+        isPaused = false;
+        tempoEstimado = 0;
+        entregasRealizadas = 0;
+        map.setView(RESTAURANTE.coords, 13); // Redefinir a visualização do mapa
+        atualizarEstatisticas();
+        atualizarInterface(null);
+
+        // Limpar lista de entregas realizadas
+        document.getElementById("entregas-realizadas-list").innerHTML =
+          "Nenhuma entrega realizada ainda.";
+
+        // Resetar texto do botão de pausa
+        const pauseButton = document.getElementById("btn-pausar");
+        pauseButton.textContent = "Pausar";
+
+        // Habilitar botões
+        document.getElementById("btn-iniciar-entregas").disabled = false;
+        document.getElementById("btn-iniciar-tempera").disabled = false;
+
+        // Limpar informações das rotas
+        document.getElementById("pior-rota-info").innerHTML =
+          "Aguardando geração...";
+        document.getElementById("rota-atual-info").innerHTML =
+          "Aguardando início...";
+        document.getElementById("melhor-rota-info").innerHTML =
+          "Aguardando otimização...";
+      }
+
+      async function iniciarEntregas() {
+        if (!rotaAtual.length) return;
+
+        // Limpar rotas anteriores
+        if (routingControl) {
+          map.removeControl(routingControl);
+        }
+
+        // Criar sequência de waypoints
+        const waypoints = [
+          L.latLng(RESTAURANTE.coords[0], RESTAURANTE.coords[1]),
+          ...rotaAtual.map((p) => L.latLng(p.coords[0], p.coords[1])),
+          L.latLng(RESTAURANTE.coords[0], RESTAURANTE.coords[1]),
+        ];
+
+        // Resetar status das entregas
+        rotaAtual.forEach((pedido) => {
+          pedido.entregue = false;
+        });
+        entregasRealizadas = 0;
+        document.getElementById("entregas-realizadas-list").innerHTML =
+          "Nenhuma entrega realizada ainda.";
+
+        // Adicionar controle de roteamento
+        routingControl = L.Routing.control({
+          waypoints: waypoints,
+          routeWhileDragging: false,
+          addWaypoints: false,
+          draggableWaypoints: false,
+          show: false,
+          createMarker: function () {
+            return null;
+          },
+        })
+          .on("routesfound", function (e) {
+            const route = e.routes[0];
+            const waypointIndices = route.waypointIndices;
+
+            // Indices em 'coordenadas' correspondentes às entregas
+            const deliveryIndices = waypointIndices.slice(1, -1);
+
+            // Atualizar tempo estimado
+            tempoEstimado = route.summary.totalTime / 60; // segundos para minutos
+            atualizarEstatisticas();
+
+            // Iniciar animação dos entregadores
+            animarEntregadores(route.coordinates, deliveryIndices);
+          })
+          .addTo(map);
+      }
+
+      function animarEntregadores(coordenadas, deliveryIndices) {
+        let index = 0;
+
+        // Remover entregadores anteriores
+        entregadorMarkers.forEach((marker) => map.removeLayer(marker));
+        entregadorMarkers = [];
+
+        // Simulando apenas um entregador para melhorar a dinâmica
+        const entregadorMarker = L.marker(coordenadas[0], {
+          icon: L.divIcon({
+            className: "entregador-icon",
+            html: "🛵",
+            iconSize: [30, 30],
+          }),
+        }).addTo(map);
+        entregadorMarkers.push(entregadorMarker);
+
+        const totalSteps = coordenadas.length;
+        const tempoTotal = 10000; // 10 segundos
+        const tempoPorPasso = tempoTotal / totalSteps;
+
+        function moveMarker() {
+          if (index < coordenadas.length - 1) {
+            if (isPaused) {
+              setTimeout(moveMarker, 100);
+              return;
+            }
+
+            index++;
+            entregadorMarker.setLatLng(coordenadas[index]);
+
+            // Verificar se chegou a um ponto de entrega
+            const deliveryIdx = deliveryIndices.indexOf(index);
+            if (deliveryIdx !== -1 && !rotaAtual[deliveryIdx].entregue) {
+              rotaAtual[deliveryIdx].entregue = true;
+              entregasRealizadas++;
+
+              // Atualizar a lista lateral de entregas realizadas
+              const entregasList = document.getElementById(
+                "entregas-realizadas-list"
+              );
+
+              if (entregasRealizadas === 1) {
+                entregasList.innerHTML = "";
+              }
+
+              const entregaInfo = document.createElement("div");
+              entregaInfo.textContent = `Entrega ${rotaAtual[deliveryIdx].id} - entregue.`;
+              entregasList.appendChild(entregaInfo);
+            }
+
+            setTimeout(moveMarker, tempoPorPasso);
+          } else {
+            alert("Entregas concluídas!");
+          }
+        }
+
+        moveMarker();
+
+        // Mostrar progresso da entrega
+        const progressInterval = setInterval(() => {
+          const progress = ((index / totalSteps) * 100).toFixed(1);
+          document.getElementById(
+            "rota-atual-info"
+          ).innerHTML += `<br>Progresso da Entrega: ${progress}%`;
+          if (index >= totalSteps - 1) {
+            clearInterval(progressInterval);
+          }
+        }, 1000);
+      }
+
+      // Inicializar aplicação
+      initMap();
+    </script>
+  </body>
+</html>
